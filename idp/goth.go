@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/casdoor/casdoor/util"
@@ -97,6 +98,7 @@ func NewGothIdProvider(providerType string, clientId string, clientSecret string
 			Session:  &amazon.Session{},
 		}
 	case "Apple":
+		redirectUrl = strings.Replace(redirectUrl, "/callback", "/api/callback", 1)
 		idp = GothIdProvider{
 			Provider: apple.New(clientId, clientSecret, redirectUrl, nil),
 			Session:  &apple.Session{},
@@ -391,6 +393,10 @@ func NewGothIdProvider(providerType string, clientId string, clientSecret string
 // SetHttpClient
 // Goth's idp all implement the Client method, but since the goth.Provider interface does not provide to modify idp's client method, reflection is required
 func (idp *GothIdProvider) SetHttpClient(client *http.Client) {
+	if idp.Provider.Name() == "apple" {
+		return
+	}
+
 	idpClient := reflect.ValueOf(idp.Provider).Elem().FieldByName("HTTPClient")
 	idpClient.Set(reflect.ValueOf(client))
 }
@@ -468,6 +474,8 @@ func getUser(gothUser goth.User, provider string) *UserInfo {
 	if provider == "steam" {
 		user.Username = user.Id
 		user.Email = ""
+	} else if provider == "apple" {
+		user.Username = util.GetUsernameFromEmail(user.Email)
 	}
 	return &user
 }
